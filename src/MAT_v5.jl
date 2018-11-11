@@ -26,7 +26,7 @@
 # http://www.mathworks.com/help/pdf_doc/matlab/matfile_format.pdf
 
 module MAT_v5
-using Libz, BufferedStreams, HDF5
+using CodecZlib, BufferedStreams, HDF5
 import Base: read, write, close
 import HDF5: names, exists
 
@@ -299,7 +299,7 @@ end
 function read_matrix(f::IO, swap_bytes::Bool)
     (dtype, nbytes) = read_header(f, swap_bytes)
     if dtype == miCOMPRESSED
-        return read_matrix(ZlibInflateInputStream(read!(f, Vector{UInt8}(nbytes))), swap_bytes)
+        return read_matrix(ZlibDecompressorStream(IOBuffer(read!(f, Vector{UInt8}(nbytes)))), swap_bytes)
     elseif dtype != miMATRIX
         error("Unexpected data type")
     elseif nbytes == 0
@@ -363,7 +363,7 @@ function getvarnames(matfile::Matlabv5File)
             offset = position(matfile.ios)
             (dtype, nbytes, hbytes) = read_header(matfile.ios, matfile.swap_bytes)
             if dtype == miCOMPRESSED
-                f = ZlibInflateInputStream(matfile.ios)
+                f = ZlibDecompressorStream(matfile.ios)
                 read_header(f, matfile.swap_bytes)
             elseif dtype == miMATRIX
                 f = matfile.ios
